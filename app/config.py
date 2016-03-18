@@ -24,6 +24,7 @@ DatabaseConfig = {
 
 
 AppConfig = {
+    'SECRET_KEY': '8efbdcc5351b3417502c8d562a144fc1',
     'DEBUG_MODE': True,
     'HOST': '0.0.0.0',
     'PORT': int(os.environ.get("PORT", 5000))

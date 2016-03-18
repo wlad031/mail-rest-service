@@ -1,5 +1,9 @@
 import datetime
-from app import db
+
+from itsdangerous import (TimedJSONWebSignatureSerializer
+                          as Serializer, BadSignature, SignatureExpired)
+
+from app import db, cfg
 from helper import hass_password
 
 
@@ -14,7 +18,7 @@ class User(db.Model):
         self.username = username
         self.pass_hash = hass_password(password)
 
-    def check_password(self, password):
+    def verify_password(self, password):
         return hass_password(password) == self.pass_hash
 
     def get_id(self):
@@ -22,6 +26,24 @@ class User(db.Model):
 
     def __repr__(self):
         return '<User %r>' % self.username
+
+    def generate_auth_token(self, expiration=600):
+        s = Serializer(cfg.AppConfig['SECRET_KEY'], expires_in=expiration)
+        return s.dumps({'id': self.id})
+
+    @staticmethod
+    def verify_auth_token(token):
+        s = Serializer(cfg.AppConfig['SECRET_KEY'])
+
+        try:
+            data = s.loads(token)
+        except SignatureExpired:
+            return None  # valid token, but expired
+        except BadSignature:
+            return None  # invalid token
+
+        user = User.query.get(data['id'])
+        return user
 
 
 class MailStatus(db.Enum):
