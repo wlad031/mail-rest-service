@@ -50,6 +50,10 @@ class MailStatus(db.Enum):
     draft = 'draft'
     sent = 'sent'
 
+    @staticmethod
+    def get_statuses():
+        return [MailStatus.sent, MailStatus.draft]
+
 
 class Mail(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
