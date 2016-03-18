@@ -5,7 +5,7 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 MySQLConfig = {
     'USER': 'root',
     'PASSWORD': 'password',
-    'DB': 'post',
+    'DB': 'mail',
     'HOST': '127.0.0.1',
     'PORT': '3306'
 }
