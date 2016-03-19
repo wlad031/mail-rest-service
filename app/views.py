@@ -12,27 +12,14 @@ from helper import mail_row_to_dict
 auth = HTTPBasicAuth()
 
 
-@app.errorhandler(401)
-def error_401(error):
-    return jsonify({'error': 'Unauthorized access'}), 401
-
-
 @app.route('/api/user', methods=['POST'])
 def new_user():
     username = request.json.get('username')
     password = request.json.get('password')
 
-    missing = []
-    if username is None:
-        missing.append('username')
-    if password is None:
-        missing.append('password')
-
-    if len(missing) > 0:
-        return jsonify({'error': 'Missing arguments', 'args': missing}), 400
-
-    if User.query.filter_by(username=username).first() is not None:
-        return jsonify({'error': 'User with the same name is already exists'}), 400
+    c = check_user_fields(username, password)
+    if c is not None:
+        return c
 
     user = User(username=username, password=password)
     db.session.add(user)
@@ -41,11 +28,18 @@ def new_user():
     return jsonify({'id': user.id, 'username': user.username}), 201
 
 
+@app.route('/api/user/<int:user_id>', methods=['GET'])
 @auth.login_required
+def get_user(user_id):
+    user = User.query.filter_by(id=user_id).first()
+    return jsonify({'id': user.id, 'username': user.username}), 200
+
+
 @app.route('/api/token')
+@auth.login_required
 def get_auth_token():
     token = g.user.generate_auth_token()
-    return jsonify({'token': token.decode('ascii')})
+    return jsonify({'id': g.user.id, 'username': g.user.username, 'token': token.decode('ascii')})
 
 
 @auth.verify_password
@@ -96,7 +90,9 @@ def create_mail():
     text = request.json.get('text')
     status = request.json.get('status')
 
-    check_mail_fields(recipient_name=recipient_name, status=status)
+    c = check_mail_fields(recipient_name=recipient_name, status=status)
+    if c is not None:
+        return c
 
     recipient = User.query.filter_by(username=recipient_name).first()
 
@@ -126,21 +122,32 @@ def update_mail(mail_id):
     subject = request.json.get('subject')
     text = request.json.get('text')
     status = request.json.get('status')
+    is_viewed = request.json.get('is_viewed')
 
-    check_mail_fields(recipient_name=recipient_name, status=status)
+    c = check_mail_fields(recipient_name=recipient_name, status=status)
+    if c is not None:
+        return c
 
     mail = get_my_mail_by_id(mail_id)
 
     if mail is None:
-        return jsonify({'error': 'Mail not found'}), 404
+        return send_error('Mail not found', 404)
 
     recipient = User.query.filter_by(username=recipient_name).first()
 
-    Mail.query.filter_by(id=mail_id).update(dict(recipient_id=recipient.id,
-                                                 subject=subject,
-                                                 text=text,
-                                                 status=status,
-                                                 timestamp=datetime.datetime.now().isoformat()))
+    updating_data = {'timestamp': datetime.datetime.now().isoformat()}
+    if recipient_name is not None:
+        updating_data['recipient_id'] = recipient.id
+    if subject is not None:
+        updating_data['subject'] = subject
+    if text is not None:
+        updating_data['text'] = text
+    if status is not None:
+        updating_data['status'] = status
+    if is_viewed is not None:
+        updating_data['is_viewed'] = is_viewed
+
+    Mail.query.filter_by(id=mail_id).update(updating_data)
 
     if status == 'send':
         mail_to_recipient = MailOwner(user_id=recipient.id, mail_id=mail_id)
@@ -157,7 +164,7 @@ def delete_mail(mail_id):
     mail = get_my_mail_by_id(mail_id)
 
     if mail is None:
-        return jsonify({'error': 'Mail not found'}), 404
+        return send_error('Mail not found', 404)
 
     MailOwner.query.filter_by(user_id=g.user.id, mail_id=mail_id).delete()
     db.session.commit()
@@ -165,7 +172,7 @@ def delete_mail(mail_id):
     Mail.query.filter_by(id=mail_id).delete()
     db.session.commit()
 
-    return jsonify({'process': 'delete', 'result': True}), 200
+    return jsonify({'process': 'delete', 'result': True, 'mail_id': mail_id}), 200
 
 
 def get_my_mail_by_id(mail_id):
@@ -187,10 +194,32 @@ def check_mail_fields(recipient_name, status):
         description = 'Use \'/api/mail/available_statuses\' for getting available statuses'
 
     if len(missing) > 0:
-        return jsonify({'error': 'Missing arguments', 'args': missing, 'description': description}), 400
+        return send_error('Missing arguments', 400, args=missing, description=description)
 
     if status not in MailStatus.get_statuses():
-        return jsonify({'error': 'Wrong mail status'}), 400
+        return send_error('Wrong mail status', 400)
 
     if User.query.filter_by(username=recipient_name).first() is None:
-        return jsonify({'error': 'Recipient not found'}), 400
+        return send_error('Recipient not found', 400)
+
+    return None
+
+
+def check_user_fields(username, password):
+    missing = []
+    if username is None:
+        missing.append('username')
+    if password is None:
+        missing.append('password')
+
+    if len(missing) > 0:
+        return send_error('Missing arguments', 400, args=missing)
+
+    if User.query.filter_by(username=username).first() is not None:
+        return send_error('User with the same name is already exists', 400)
+
+    return None
+
+
+def send_error(message, status_code, args=None, description=None):
+    return jsonify({'error': message, 'args': args, 'description': description}), status_code
