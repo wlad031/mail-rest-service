@@ -12,7 +12,7 @@ from helper import mail_row_to_dict
 auth = HTTPBasicAuth()
 
 
-@app.route('/api/user', methods=['POST'])
+@app.route('/api/user', methods=['PUT'])
 def new_user():
     username = request.json.get('username')
     password = request.json.get('password')
@@ -124,25 +124,25 @@ def update_mail(mail_id):
     status = request.json.get('status')
     is_viewed = request.json.get('is_viewed')
 
-    c = check_mail_fields(recipient_name=recipient_name, status=status)
-    if c is not None:
-        return c
-
     mail = get_my_mail_by_id(mail_id)
 
     if mail is None:
         return send_error('Mail not found', 404)
 
-    recipient = User.query.filter_by(username=recipient_name).first()
-
     updating_data = {'timestamp': datetime.datetime.now().isoformat()}
     if recipient_name is not None:
+        if not check_mail_recipient(recipient_name):
+            return send_error('Recipient not found', 400)
+
+        recipient = User.query.filter_by(username=recipient_name).first()
         updating_data['recipient_id'] = recipient.id
     if subject is not None:
         updating_data['subject'] = subject
     if text is not None:
         updating_data['text'] = text
     if status is not None:
+        if not check_mail_status(status):
+            return send_error('invalid status', 400)
         updating_data['status'] = status
     if is_viewed is not None:
         updating_data['is_viewed'] = is_viewed
@@ -169,9 +169,6 @@ def delete_mail(mail_id):
     MailOwner.query.filter_by(user_id=g.user.id, mail_id=mail_id).delete()
     db.session.commit()
 
-    Mail.query.filter_by(id=mail_id).delete()
-    db.session.commit()
-
     return jsonify({'process': 'delete', 'result': True, 'mail_id': mail_id}), 200
 
 
@@ -181,6 +178,18 @@ def get_my_mail_by_id(mail_id):
 
 def get_my_mail_ids():
     return [mtu.mail_id for mtu in MailOwner.query.join(User).filter_by(id=g.user.id).all()]
+
+
+def check_mail_recipient(recipient_name):
+    if User.query.filter_by(username=recipient_name).first() is None:
+        return False
+    return True
+
+
+def check_mail_status(status):
+    if status not in MailStatus.get_statuses():
+        return False
+    return True
 
 
 def check_mail_fields(recipient_name, status):
@@ -196,10 +205,10 @@ def check_mail_fields(recipient_name, status):
     if len(missing) > 0:
         return send_error('Missing arguments', 400, args=missing, description=description)
 
-    if status not in MailStatus.get_statuses():
+    if not check_mail_status(status):
         return send_error('Wrong mail status', 400)
 
-    if User.query.filter_by(username=recipient_name).first() is None:
+    if not check_mail_recipient(recipient_name):
         return send_error('Recipient not found', 400)
 
     return None
