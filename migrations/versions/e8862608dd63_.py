@@ -43,6 +43,7 @@ def upgrade():
                     sa.Column('id', sa.Integer(), nullable=False),
                     sa.Column('mail_id', sa.Integer(), nullable=False),
                     sa.Column('user_id', sa.Integer(), nullable=False),
+                    sa.PrimaryKeyConstraint('id'),
                     sa.ForeignKeyConstraint(['mail_id'], ['mail.id'], ),
                     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
                     )
