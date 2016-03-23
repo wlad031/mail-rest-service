@@ -40,11 +40,11 @@ def upgrade():
                     sa.PrimaryKeyConstraint('id')
                     )
     op.create_table('mail_owner',
+                    sa.Column('id', sa.Integer(), nullable=False),
                     sa.Column('mail_id', sa.Integer(), nullable=False),
                     sa.Column('user_id', sa.Integer(), nullable=False),
                     sa.ForeignKeyConstraint(['mail_id'], ['mail.id'], ),
                     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
-                    sa.PrimaryKeyConstraint('mail_id', 'user_id')
                     )
     ### end Alembic commands ###
 

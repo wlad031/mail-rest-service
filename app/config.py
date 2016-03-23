@@ -4,7 +4,8 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 
 DatabaseConfig = {
     'SQLALCHEMY_DATABASE_URI': (
-        os.getenv('DATABASE_URI', 'mysql://sql7111851:ljXnHgXURP@sql7.freemysqlhosting.net:3306/sql7111851')
+        os.getenv('DATABASE_URI',
+                  'postgres://orveamykispgam:zVvcgvwlPO0OKR3rXyeB7LwsyT@ec2-107-22-246-250.compute-1.amazonaws.com:5432/deeg08griam59u')
     ),
 }
 

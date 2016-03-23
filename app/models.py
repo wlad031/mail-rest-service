@@ -82,10 +82,9 @@ class Mail(db.Model):
 class MailOwner(db.Model):
     __tablename__ = 'mail_owner'
 
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     mail_id = db.Column(db.Integer, db.ForeignKey('mail.id'))
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-
-    pr_key = db.PrimaryKeyConstraint(mail_id, user_id)
 
     def __init__(self, mail_id, user_id):
         self.mail_id = mail_id
