@@ -58,7 +58,7 @@ class MailStatus(db.Enum):
 class Mail(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     sender_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    recipient = db.Column(db.String(64))
     subject = db.Column(db.String(128))
     text = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow())
@@ -66,11 +66,10 @@ class Mail(db.Model):
     is_viewed = db.Column(db.Boolean, default=False)
 
     sender = db.relationship(User, foreign_keys='Mail.sender_id')
-    recipient = db.relationship(User, foreign_keys='Mail.recipient_id')
 
-    def __init__(self, sender_id, recipient_id, subject, text, status):
+    def __init__(self, sender_id, recipient, subject, text, status):
         self.sender_id = sender_id
-        self.recipient_id = recipient_id
+        self.recipient = recipient
         self.subject = subject
         self.text = text
         self.status = status

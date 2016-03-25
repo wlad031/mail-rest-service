@@ -10,5 +10,4 @@ app.config['SQLALCHEMY_DATABASE_URI'] = cfg.DatabaseConfig['SQLALCHEMY_DATABASE_
 
 login_manager = LoginManager(app)
 db = SQLAlchemy(app)
-
 from app import views, models

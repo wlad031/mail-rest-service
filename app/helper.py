@@ -8,7 +8,7 @@ def hass_password(password):
 def mail_row_to_dict(mail_item):
     return {'id': mail_item.id,
             'sender_id': mail_item.sender_id,
-            'recipient_id': mail_item.recipient_id,
+            'recipient': mail_item.recipient,
             'subject': mail_item.subject,
             'text': mail_item.text,
             'timestamp': mail_item.timestamp,

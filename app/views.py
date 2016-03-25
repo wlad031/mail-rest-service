@@ -1,9 +1,11 @@
 import datetime
+import smtplib
 
 from flask import jsonify, request, g
 from flask.ext.httpauth import HTTPBasicAuth
+from email import message
 
-from app import app, db
+from app import app, db, cfg
 from app.models import User, Mail, MailOwner, MailStatus
 from helper import mail_row_to_dict
 
@@ -14,7 +16,7 @@ auth = HTTPBasicAuth()
 
 @app.route('/api/user', methods=['PUT'])
 def new_user():
-    username = request.json.get('username')
+    username = request.json.get('username') + '@' + cfg.AppConfig['MAIL_DOMAIN']
     password = request.json.get('password')
 
     c = check_user_fields(username, password)
@@ -39,7 +41,9 @@ def get_user(user_id):
 @auth.login_required
 def get_auth_token():
     token = g.user.generate_auth_token()
-    return jsonify({'id': g.user.id, 'username': g.user.username, 'token': token.decode('ascii')})
+    return jsonify({'id': g.user.id,
+                    'username': g.user.username,
+                    'token': token.decode('ascii')})
 
 
 @auth.verify_password
@@ -90,14 +94,14 @@ def create_mail():
     text = request.json.get('text')
     status = request.json.get('status')
 
-    c = check_mail_fields(recipient_name=recipient_name, status=status)
+    rec = recipient_name.split('@', 1)
+
+    c = check_mail_status(status)
     if c is not None:
         return c
 
-    recipient = User.query.filter_by(username=recipient_name).first()
-
     mail = Mail(sender_id=g.user.id,
-                recipient_id=recipient.id,
+                recipient=recipient_name,
                 subject=subject,
                 text=text,
                 status=status)
@@ -106,11 +110,28 @@ def create_mail():
     db.session.commit()
 
     db.session.add(MailOwner(user_id=g.user.id, mail_id=mail.id))
-
-    if status == MailStatus.sent:
-        db.session.add(MailOwner(user_id=recipient.id, mail_id=mail.id))
-
     db.session.commit()
+
+    if rec[1] == cfg.AppConfig['MAIL_DOMAIN']:
+        if status == MailStatus.sent:
+            recipient = User.query.filter_by(username=recipient_name).first()
+            if recipient is not None:
+                db.session.add(MailOwner(user_id=recipient.id, mail_id=mail.id))
+                db.session.commit()
+
+    else:
+        msg = message.Message()
+        msg.add_header('from', g.user.username)
+        msg.add_header('to', recipient_name)
+        msg.add_header('subject', subject)
+        msg.set_payload(text)
+
+        server = smtplib.SMTP(cfg.MailConfig['MAIL_SERVER'])
+        server.starttls()
+        server.login(cfg.MailConfig['MAIL_USERNAME'], cfg.MailConfig['MAIL_PASSWORD'])
+
+        server.sendmail(g.user.username, recipient_name, msg.as_string())
+        server.close()
 
     return jsonify({'process': 'create', 'result': True, 'mail': mail_row_to_dict(mail)}), 201
 
@@ -130,12 +151,7 @@ def update_mail(mail_id):
         return send_error('Mail not found', 404)
 
     updating_data = {'timestamp': datetime.datetime.now().isoformat()}
-    if recipient_name is not None:
-        if not check_mail_recipient(recipient_name):
-            return send_error('Recipient not found', 400)
 
-        recipient = User.query.filter_by(username=recipient_name).first()
-        updating_data['recipient_id'] = recipient.id
     if subject is not None:
         updating_data['subject'] = subject
     if text is not None:
@@ -150,8 +166,9 @@ def update_mail(mail_id):
     Mail.query.filter_by(id=mail_id).update(updating_data)
 
     if status == 'send':
-        mail_to_recipient = MailOwner(user_id=recipient.id, mail_id=mail_id)
-        db.session.add(mail_to_recipient)
+        recipient = User.query.filter_by(username=recipient_name).first()
+        if recipient is not None:
+            db.session.add(MailOwner(user_id=recipient.id, mail_id=mail.id))
 
     db.session.commit()
 
@@ -177,41 +194,12 @@ def get_my_mail_by_id(mail_id):
 
 
 def get_my_mail_ids():
-    return [mtu.mail_id for mtu in MailOwner.query.join(User).filter_by(id=g.user.id).all()]
-
-
-def check_mail_recipient(recipient_name):
-    if User.query.filter_by(username=recipient_name).first() is None:
-        return False
-    return True
+    return [mtu.mail_id for mtu in MailOwner.query.filter_by(user_id=g.user.id).all()]
 
 
 def check_mail_status(status):
     if status not in MailStatus.get_statuses():
-        return False
-    return True
-
-
-def check_mail_fields(recipient_name, status):
-    missing = []
-    description = None
-
-    if recipient_name is None:
-        missing.append('recipient')
-    if status is None:
-        missing.append('status')
-        description = 'Use \'/api/mail/available_statuses\' for getting available statuses'
-
-    if len(missing) > 0:
-        return send_error('Missing arguments', 400, args=missing, description=description)
-
-    if not check_mail_status(status):
         return send_error('Wrong mail status', 400)
-
-    if not check_mail_recipient(recipient_name):
-        return send_error('Recipient not found', 400)
-
-    return None
 
 
 def check_user_fields(username, password):
