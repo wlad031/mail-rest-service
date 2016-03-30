@@ -1,11 +1,10 @@
 import datetime
-import smtplib
 
+import sendgrid
 from flask import jsonify, request, g
 from flask.ext.httpauth import HTTPBasicAuth
-from email import message
 
-from app import app, db, cfg
+from app import app, db, cfg, client
 from app.models import User, Mail, MailOwner, MailStatus
 from helper import mail_row_to_dict
 
@@ -82,7 +81,9 @@ def get_mail(mail_id):
 @app.route('/api/mail', methods=['GET'])
 @auth.login_required
 def get_all_mails():
-    mails = list([mail_row_to_dict(m) for m in Mail.query.filter(Mail.id.in_(get_my_mail_ids())).all()])
+    mails = [m for m in Mail.query.filter(Mail.id.in_(get_my_mail_ids())).all()]
+    # Sorting doesn't work :(
+    mails = [mail_row_to_dict(m) for m in sorted(mails, key=lambda x: x.timestamp)]
     return jsonify({'mails': mails})
 
 
@@ -95,6 +96,9 @@ def create_mail():
     status = request.json.get('status')
 
     rec = recipient_name.split('@', 1)
+
+    if len(rec) == 1:
+        return send_error('Invalid recipient', status_code=400)
 
     c = check_mail_status(status)
     if c is not None:
@@ -120,18 +124,10 @@ def create_mail():
                 db.session.commit()
 
     else:
-        msg = message.Message()
-        msg.add_header('from', g.user.username)
-        msg.add_header('to', recipient_name)
-        msg.add_header('subject', subject)
-        msg.set_payload(text)
-
-        server = smtplib.SMTP(cfg.MailConfig['MAIL_SERVER'])
-        server.starttls()
-        server.login(cfg.MailConfig['MAIL_USERNAME'], cfg.MailConfig['MAIL_PASSWORD'])
-
-        server.sendmail(g.user.username, recipient_name, msg.as_string())
-        server.close()
+        send_to_email(to_email=recipient_name,
+                      from_email=g.user.username,
+                      subject=subject,
+                      text=text)
 
     return jsonify({'process': 'create', 'result': True, 'mail': mail_row_to_dict(mail)}), 201
 
@@ -216,6 +212,17 @@ def check_user_fields(username, password):
         return send_error('User with the same name is already exists', 400)
 
     return None
+
+
+def send_to_email(to_email, from_email, subject, text):
+    mail = sendgrid.Mail()
+
+    mail.add_to(to_email)
+    mail.set_from(from_email)
+    mail.set_subject(subject)
+    mail.set_html(text)
+
+    print client.send(mail)
 
 
 def send_error(message, status_code, args=None, description=None):

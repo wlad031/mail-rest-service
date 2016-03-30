@@ -3,9 +3,7 @@ import os
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 DatabaseConfig = {
-    'SQLALCHEMY_DATABASE_URI': (
-        os.getenv('DATABASE_URI', 'mysql://root:password@localhost:3306/mail')
-    ),
+    'SQLALCHEMY_DATABASE_URI': os.getenv('DATABASE_URI', 'Database URI')
 }
 
 AppConfig = {
@@ -17,7 +15,5 @@ AppConfig = {
 }
 
 MailConfig = {
-    'MAIL_SERVER': 'smtp.gmail.com:587',
-    'MAIL_USERNAME': os.getenv('MAIL_USERNAME'),
-    'MAIL_PASSWORD': os.getenv('MAIL_PASSWORD')
+    'SENDGRID_API_KEY': os.getenv('SENDGRID_API_KEY', 'Sendgrid API key')
 }

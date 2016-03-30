@@ -1,3 +1,4 @@
+import sendgrid
 from flask import Flask
 from flask_login import LoginManager
 from flask_sqlalchemy import SQLAlchemy
@@ -10,4 +11,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = cfg.DatabaseConfig['SQLALCHEMY_DATABASE_
 
 login_manager = LoginManager(app)
 db = SQLAlchemy(app)
+
+client = sendgrid.SendGridClient(cfg.MailConfig['SENDGRID_API_KEY'])
+
 from app import views, models
