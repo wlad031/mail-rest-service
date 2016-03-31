@@ -11,7 +11,10 @@ AppConfig = {
     'SECRET_KEY': os.urandom(32),
     'DEBUG_MODE': True,
     'HOST': os.getenv('HOST', '0.0.0.0'),
-    'PORT': int(os.getenv('PORT', 5000))
+    'PORT': int(os.getenv('PORT', 5000)),
+    'INDEX_GREETING': 'Hello! You\'re using my RESTful mail server.<br>'
+                      'It\'s my study project of the subject "Software testing".<br>'
+                      'Vladislav Gerasimov. 2016'
 }
 
 MailConfig = {

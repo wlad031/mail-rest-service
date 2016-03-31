@@ -13,6 +13,11 @@ from helper import mail_row_to_dict
 auth = HTTPBasicAuth()
 
 
+@app.route('/')
+def index():
+    return cfg.AppConfig['INDEX_GREETING']
+
+
 @app.route('/api/user', methods=['PUT'])
 def new_user():
     username = request.json.get('username') + '@' + cfg.AppConfig['MAIL_DOMAIN']
