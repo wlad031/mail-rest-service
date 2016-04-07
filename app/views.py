@@ -158,15 +158,15 @@ def update_mail(mail_id):
     if text is not None:
         updating_data['text'] = text
     if status is not None:
-        if not check_mail_status(status):
-            return send_error('invalid status', 400)
+        if check_mail_status(status) is not None:
+            return send_error('Invalid status', 400)
         updating_data['status'] = status
     if is_viewed is not None:
         updating_data['is_viewed'] = is_viewed
 
     Mail.query.filter_by(id=mail_id).update(updating_data)
 
-    if status == 'send':
+    if status == 'sent':
         recipient = User.query.filter_by(username=recipient_name).first()
         if recipient is not None:
             db.session.add(MailOwner(user_id=recipient.id, mail_id=mail.id))
